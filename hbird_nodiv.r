@@ -20,7 +20,7 @@ library(raster)
 hb_commat <- read.csv("hbird_sitexspmat_sub.csv")
 dim(hb_commat)
 hb_commat[1:5,1:4]
-#rownames(hb_commat) <- hb_commat$X
+rownames(hb_commat) <- hb_commat$X
 hb_commat2 <- hb_commat[,-1]
 
 #hb_commat2 without A. colubris
