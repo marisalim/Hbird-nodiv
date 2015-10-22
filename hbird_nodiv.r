@@ -184,7 +184,10 @@ plotSOS(humm_nodiv_geo, 372)
 # ------------ 4. Run nodiv: environmental space ------------
 humm_nodiv_env <- Node_analysis(hummers_env, repeats = 100, method = "rdtable")
 plot(humm_nodiv_env)
+
+jpeg("Hbird_GND_environment.jpg", height=8, width=15, units="in", res=600)
 plot(humm_nodiv_env, label=humm_nodiv_env$GND, col=heat.colors(10), direction="upwards")
+dev.off()
 
 # not sure how to label the axes with this plot function (diff from geographic space one)
 # x-axis = temperature, y-axis = precipitation
