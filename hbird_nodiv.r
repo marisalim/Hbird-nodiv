@@ -2,23 +2,23 @@
 # Marisa Lim (c)2015
 
 # load libraries
-# # Installing the package
-# install.packages("nodiv") 
-#OR
 library(devtools)
 install_github("mkborregaard/nodiv") #Gives the newest version - is probably LESS buggy than CRAN version
-# # load the package
 library(nodiv)
-# help(package = nodiv)
 library(ape)
 library(raster)
+library(fields)
+library(dplyr)
+library(picante)
+
+load('C:/Users/mcwlim/Desktop/Github/Hbird-genomics/P3_Diversi/nodiv-trait-analysis.RDATA')
 
 # set working directory
 #MLwd = "D:/MarisaLimfiles/Make_sitexsp_matrix/"
 MLwd = "C:/Users/mcwlim/Dropbox/resultsfromSarahcomputer/nodesigfiles"
 setwd(MLwd)
 
-# ------------ Building distrib_data and nodiv_data object ------------
+# ------------ 1. Load input data: sitexsp, coords, shape, tree ------------
 # Read in site by species matrix
 #hb_commat <- read.csv("for sitexsp/hbird_sitexspmat_sub.csv") #a 0/1 site-by-species matrix
 hb_commat <- read.csv("hbird_sitexspmat_sub.csv")
@@ -31,31 +31,61 @@ hb_commat2 <- hb_commat[,-1]
 #hb_coords <- read.csv("for sitexsp/cell_coords_rounded.csv")[,-1] # a data.frame with one row for each site, and lat/long coordinates in 2 of the columns
 hb_coords <- read.csv("cell_coords_rounded.csv")[,-1]
 head(hb_coords)
-#colnames(hb_coords) <- c("cellIDs", "X", "Y")
-
-# The coords do not need to have the same length or be ordered the same way
-hummers <- distrib_data(hb_commat2, hb_coords) 
-
-# Describing the data set 
-hummers
-summary(hummers)
-names(hummers)
-
-# create a species richness plot as diagnostic
-plot(hummers)  
+colnames(hb_coords) <- c("cellIDs", "Long", "Lat")
 
 # Read in geographic extent shape file
 #myshape <- raster("for sitexsp/myvarscrop.grd")
 myshape<- raster("myvarscrop.grd")
 plot(myshape,col="grey")
-hummers <- add_shape(hummers, myshape)
-plot(hummers)
 
-# ------------ Add the phylogenetic information ------------
+# Read in tree
 #tree <- read.tree("humtree280.tre") 
 tree <- read.tree("C:/Users/mcwlim/Desktop/StonyBrook/GrahamLab/Dissertation idea materials/THESIS PROJECTS/Hummingbird_Genomics/humtree280.tre")
+
+# ------------ 2. Load inputs into nodiv object ------------
+
+# Get environmental variables
+add_climate_data <- function(hb_coords) {
+  # Get rasters  
+  tmin <- raster::getData("worldclim", var="tmin", res = 10) %>% mean()
+  prec <- raster::getData("worldclim", var="prec", res = 10) %>% sum()
+  
+  # Extract values
+  hb_coords$tmin <- raster::extract(x=tmin, y=hb_coords[c("Long", "Lat")])/10
+  hb_coords$tmin[is.na(hb_coords$tmin)] <- na.omit(hb_coords$tmin)/10
+  
+  hb_coords$prec <- raster::extract(x=prec, y=hb_coords[c("Long", "Lat")])
+  hb_coords$prec[is.na(hb_coords$prec)] <- na.omit(hb_coords$prec)
+  
+  arrange(hb_coords, cellIDs)
+  return(hb_coords)
+}
+add_climate_data(hb_coords)
+
+# Generate distrib_data object
+hummers <- distrib_data(hb_commat2, hb_coords[,1:3]) %>% 
+  add_shape(myshape)
+hummers <- add_sitestat(distrib_data=hummers, 
+                        sitestat=dplyr::select(hb_coords, tmin, prec), site=rownames(hb_commat2))
+# Add phylogeny
 hummers <- nodiv_data(tree, hummers) 
-summary(hummers)
+plot(hummers)
+
+# Grid Data...
+#...in geographic space
+hummers_geo <- gridData(hummers, type = "geo") ### TO DO: what does this do??
+plot(hummers_geo)
+#...in environmental space 
+hummers_env <- gridData(hummers, type = "env", env_binsizes = c(2, 400))
+  ## Warning message: In points2grid(points, tolerance, round) :   grid has empty column/rows in dimension 2
+plot(hummers_env) #### FIX: empty...
+
+# ------------ The most basic summary metrics are then available: ------------
+# The coords do not need to have the same length or be ordered the same way
+# hummers <- distrib_data(hb_commat2, hb_coords) 
+# hummers <- add_shape(hummers, myshape)
+# plot(hummers)
+# hummers <- nodiv_data(tree, hummers) 
 
 #look at node numbers
 plot(hummers$phylo)
@@ -78,7 +108,14 @@ jpeg("Hbird_noderichness_Coqvs.Brill.jpg", height=6, width=6, units="in", res=60
 plot_node(hummers,node=330, main="Species richness; Coquettes vs. Brilliants")
 dev.off()
 
-# ------------ The most basic summary metrics are then available: ------------
+# Describing the data set 
+hummers
+summary(hummers)
+names(hummers)
+
+# create a species richness plot as diagnostic
+plot(hummers) 
+
 head(species(hummers))
 Nspecies(hummers)
 head(sites(hummers))
@@ -110,8 +147,8 @@ Descendants(150, hummers)
 #Optionally, you can restrict the analysis to only sites with at least 4 species
 # hummers <- subsample(hummers, sites = richness(hummers) > 3)
 
-# ------------ Run nodiv! ------------
-humm_nodiv <- Node_analysis(hummers, repeats = 200, method = "rdtable") #TODO: how many repeats?
+# ------------ 3. Run nodiv: geographic space ------------
+humm_nodiv <- Node_analysis(hummers, repeats = 200, method = "rdtable") 
 summary(humm_nodiv)
 par(mfrow=c(1,1))
 plot(humm_nodiv, label=nodenumbers(humm_nodiv), col="HMrainbow")
@@ -122,13 +159,13 @@ dev.off()
 #plot SOS values for a given node
 # check the node numbers if you change resolution of data
 jpeg("Hbird_SOS_Andeancladevsrest.jpg", height=6, width=6, units="in", res=600)
-plotSOS(humm_nodiv, 329, main="Andean clade vs. rest", col="HMrainbow") 
+plotSOS(humm_nodiv, 329, main="Andean clade vs. rest", col="HMrainbow", xlab="Longitude", ylab="Latitude") 
 dev.off()
 jpeg("Hbird_SOS_Basevsrest.jpg", height=6, width=6, units="in", res=600)
-plotSOS(humm_nodiv, 272, main="HermitsTopazes vs. rest", col="HMrainbow")
+plotSOS(humm_nodiv, 272, main="HermitsTopazes vs. rest", col="HMrainbow", xlab="Longitude", ylab="Latitude")
 dev.off()
 jpeg("Hbird_SOS_BeesGemsvsEms.jpg", height=6, width=6, units="in", res=600)
-plotSOS(humm_nodiv, 416, main="BeesGems vs. Emeralds", col="HMrainbow")
+plotSOS(humm_nodiv, 416, main="BeesGems vs. Emeralds", col="HMrainbow", xlab="Longitude", ylab="Latitude")
 dev.off()
 
 jpeg("Hbird_SOS_hists.jpg", height=6, width=8, units="in", res=600)
@@ -138,6 +175,35 @@ hist(SOS(humm_nodiv, 272))
 dev.off()
 
 GND(humm_nodiv)
+
+# with hummers_geo
+humm_nodiv_geo <- Node_analysis(hummers_geo, repeats = 100, method = "rdtable")
+plot(humm_nodiv_geo)
+plotSOS(humm_nodiv_geo, 372)
+
+# ------------ 4. Run nodiv: environmental space ------------
+humm_nodiv_env <- Node_analysis(hummers_env, repeats = 100, method = "rdtable")
+plot(humm_nodiv_env)
+plot(humm_nodiv_env, label=humm_nodiv_env$GND, col=heat.colors(10), direction="upwards")
+
+# not sure how to label the axes with this plot function (diff from geographic space one)
+# x-axis = temperature, y-axis = precipitation
+jpeg("Hbird_SOSenv_Basevsrest.jpg", height=6, width=6, units="in", res=600)
+plotSOS(humm_nodiv_env, 272, col=HMrainbow()) ## What do these show??
+dev.off()
+jpeg("Hbird_SOSenv_Andeancladevsrest.jpg", height=6, width=6, units="in", res=600)
+plotSOS(humm_nodiv_env, 329, col=HMrainbow())
+dev.off()
+
+plotSOS(humm_nodiv_env, 372, col=HMrainbow())
+
+jpeg("Hbird_SOSenv_BeesGemsvsEms.jpg", height=6, width=6, units="in", res=600)
+plotSOS(humm_nodiv_env, 416, col=HMrainbow())
+dev.off()
+
+hist(SOS(humm_nodiv_env, 272))
+hist(SOS(humm_nodiv_env, 416))
+
 
 # ------------ code for running without Archilochus colubris -----------
 #hb_commat2 without A. colubris
