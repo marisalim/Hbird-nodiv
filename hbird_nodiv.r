@@ -45,22 +45,41 @@ tree <- read.tree("C:/Users/mcwlim/Desktop/StonyBrook/GrahamLab/Dissertation ide
 # ------------ 2. Load inputs into nodiv object ------------
 
 # Get environmental variables
-# Get rasters  
-tmin <- raster::getData("worldclim", var="tmin", res = 10) %>% mean()
-prec <- raster::getData("worldclim", var="prec", res = 10) %>% sum()
-# Extract values
+# Note, res=10 and res=0.5 give pretty much the same results
+# # Get rasters res=10
+# tmin <- raster::getData("worldclim", var="tmin", res = 10) %>% mean()
+# prec <- raster::getData("worldclim", var="prec", res = 10) %>% sum()
+# # Extract values (res=10)
+# hb_coords$tmin <- raster::extract(x=tmin, y=hb_coords[c("Long", "Lat")])/10
+# hb_coords$tmin[is.na(hb_coords$tmin)] <- na.omit(hb_coords$tmin)/10
+# hb_coords$prec <- raster::extract(x=prec, y=hb_coords[c("Long", "Lat")])
+# hb_coords$prec[is.na(hb_coords$prec)] <- na.omit(hb_coords$prec)
+# hb_coords2 <- arrange(hb_coords, cellIDs)
+# head(hb_coords2)
+
+# Get rasters res=0.5
+tmin5_min <- raster::getData("worldclim", var="tmin", res = 0.5, lon=min(hb_coords$Long), lat=min(hb_coords$Lat)) %>% mean()
+tmin5_max <- raster::getData("worldclim", var="tmin", res = 0.5, lon=max(hb_coords$Long), lat=max(hb_coords$Lat)) %>% mean()
+prec5_min <- raster::getData("worldclim", var="prec", res = 0.5, lon=min(hb_coords$Long), lat=min(hb_coords$Lat)) %>% sum()
+prec5_max <- raster::getData("worldclim", var="prec", res = 0.5, lon=max(hb_coords$Long), lat=max(hb_coords$Lat)) %>% sum()
+# Extract values (res=0.5)
 hb_coords$tmin <- raster::extract(x=tmin, y=hb_coords[c("Long", "Lat")])/10
-hb_coords$tmin[is.na(hb_coords$tmin)] <- na.omit(hb_coords$tmin)/10
+hb_coords$tmin[is.na(hb_coords$tmin)] <- na.omit(extract(tmin5_max, hb_coords[c("Long", "Lat")]))/10
 hb_coords$prec <- raster::extract(x=prec, y=hb_coords[c("Long", "Lat")])
-hb_coords$prec[is.na(hb_coords$prec)] <- na.omit(hb_coords$prec)
-hb_coords2 <- arrange(hb_coords, cellIDs)
-head(hb_coords2)
+hb_coords$prec[is.na(hb_coords$prec)] <- na.omit(extract(prec5_max, hb_coords[c("Long", "Lat")]))
+hb_coords3 <- arrange(hb_coords, cellIDs)
+head(hb_coords3)
 
 # Generate distrib_data object
 hummers <- distrib_data(hb_commat2, hb_coords) %>% 
   add_shape(myshape)
+# # res=10
+# hummers <- add_sitestat(distrib_data=hummers, 
+#                         sitestat=dplyr::select(hb_coords2, tmin, prec), 
+#                         site=rownames(hb_commat2))
+res=0.5
 hummers <- add_sitestat(distrib_data=hummers, 
-                        sitestat=dplyr::select(hb_coords2, tmin, prec), 
+                        sitestat=dplyr::select(hb_coords3, tmin, prec), 
                         site=rownames(hb_commat2))
 # Add phylogeny
 hummers <- nodiv_data(tree, hummers) 
