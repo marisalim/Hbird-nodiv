@@ -11,6 +11,7 @@ library(fields)
 library(dplyr)
 library(picante)
 
+# load this for the gridData function
 load('C:/Users/mcwlim/Desktop/Github/Hbird-genomics/P3_Diversi/nodiv-trait-analysis.RDATA')
 
 # set working directory
