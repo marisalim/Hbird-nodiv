@@ -45,28 +45,23 @@ tree <- read.tree("C:/Users/mcwlim/Desktop/StonyBrook/GrahamLab/Dissertation ide
 # ------------ 2. Load inputs into nodiv object ------------
 
 # Get environmental variables
-add_climate_data <- function(hb_coords) {
-  # Get rasters  
-  tmin <- raster::getData("worldclim", var="tmin", res = 10) %>% mean()
-  prec <- raster::getData("worldclim", var="prec", res = 10) %>% sum()
-  
-  # Extract values
-  hb_coords$tmin <- raster::extract(x=tmin, y=hb_coords[c("Long", "Lat")])/10
-  hb_coords$tmin[is.na(hb_coords$tmin)] <- na.omit(hb_coords$tmin)/10
-  
-  hb_coords$prec <- raster::extract(x=prec, y=hb_coords[c("Long", "Lat")])
-  hb_coords$prec[is.na(hb_coords$prec)] <- na.omit(hb_coords$prec)
-  
-  arrange(hb_coords, cellIDs)
-  return(hb_coords)
-}
-add_climate_data(hb_coords)
+# Get rasters  
+tmin <- raster::getData("worldclim", var="tmin", res = 10) %>% mean()
+prec <- raster::getData("worldclim", var="prec", res = 10) %>% sum()
+# Extract values
+hb_coords$tmin <- raster::extract(x=tmin, y=hb_coords[c("Long", "Lat")])/10
+hb_coords$tmin[is.na(hb_coords$tmin)] <- na.omit(hb_coords$tmin)/10
+hb_coords$prec <- raster::extract(x=prec, y=hb_coords[c("Long", "Lat")])
+hb_coords$prec[is.na(hb_coords$prec)] <- na.omit(hb_coords$prec)
+hb_coords2 <- arrange(hb_coords, cellIDs)
+head(hb_coords2)
 
 # Generate distrib_data object
-hummers <- distrib_data(hb_commat2, hb_coords[,1:3]) %>% 
+hummers <- distrib_data(hb_commat2, hb_coords) %>% 
   add_shape(myshape)
 hummers <- add_sitestat(distrib_data=hummers, 
-                        sitestat=dplyr::select(hb_coords, tmin, prec), site=rownames(hb_commat2))
+                        sitestat=dplyr::select(hb_coords2, tmin, prec), 
+                        site=rownames(hb_commat2))
 # Add phylogeny
 hummers <- nodiv_data(tree, hummers) 
 plot(hummers)
@@ -148,7 +143,7 @@ Descendants(150, hummers)
 # hummers <- subsample(hummers, sites = richness(hummers) > 3)
 
 # ------------ 3. Run nodiv: geographic space ------------
-humm_nodiv <- Node_analysis(hummers, repeats = 200, method = "rdtable") 
+humm_nodiv <- Node_analysis(hummers, repeats = 100, method = "rdtable") 
 summary(humm_nodiv)
 par(mfrow=c(1,1))
 plot(humm_nodiv, label=nodenumbers(humm_nodiv), col="HMrainbow")
@@ -192,7 +187,7 @@ dev.off()
 # not sure how to label the axes with this plot function (diff from geographic space one)
 # x-axis = temperature, y-axis = precipitation
 jpeg("Hbird_SOSenv_Basevsrest.jpg", height=6, width=6, units="in", res=600)
-plotSOS(humm_nodiv_env, 272, col=HMrainbow()) ## What do these show??
+plotSOS(humm_nodiv_env, 272, col=HMrainbow()) 
 dev.off()
 jpeg("Hbird_SOSenv_Andeancladevsrest.jpg", height=6, width=6, units="in", res=600)
 plotSOS(humm_nodiv_env, 329, col=HMrainbow())
@@ -206,7 +201,6 @@ dev.off()
 
 hist(SOS(humm_nodiv_env, 272))
 hist(SOS(humm_nodiv_env, 416))
-
 
 # ------------ code for running without Archilochus colubris -----------
 #hb_commat2 without A. colubris
