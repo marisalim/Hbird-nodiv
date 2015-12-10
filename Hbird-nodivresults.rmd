@@ -1,0 +1,154 @@
+---
+title: "Nodiv results"
+author: "Marisa Lim"
+date: "December 9, 2015"
+output: 
+  html_document:
+    theme: flatly
+---
+
+Run nodiv on hummingbird species range map data (site x sp matrix) and climate data
+
+```{r, eval = TRUE, echo = FALSE, include = FALSE}
+# load libraries
+mypackages <- c('devtools', 'ape', 'raster', 'fields', 'dplyr', 'picante')
+lapply(mypackages, require, character.only=T)
+install_github("mkborregaard/nodiv") #Gives the newest version - is probably LESS buggy than cran version
+
+# load this for the gridData function
+load('C:/Users/mcwlim/Desktop/Github/Hbird-diversity/P3_Diversi/nodiv-trait-analysis.RDATA')
+```
+
+#### 1. Load input data: sitexsp, coords, shape, tree 
+```{r, eval = TRUE, echo = FALSE, include = FALSE}
+# Read in site by species matrix
+#hb_commat <- read.csv("for sitexsp/hbird_sitexspmat_sub.csv") #a 0/1 site-by-species matrix
+hb_commat <- read.csv("C:/Users/mcwlim/Dropbox/resultsfromSarahcomputer/nodesigfiles/hbird_sitexspmat_sub.csv")
+dim(hb_commat)
+hb_commat[1:5,1:4]
+rownames(hb_commat) <- hb_commat$X
+hb_commat2 <- hb_commat[,-1]
+
+# Read in cell coordinate information
+#hb_coords <- read.csv("for sitexsp/cell_coords_rounded.csv")[,-1] # a data.frame with one row for each site, and lat/long coordinates in 2 of the columns
+hb_coords <- read.csv("C:/Users/mcwlim/Dropbox/resultsfromSarahcomputer/nodesigfiles/cell_coords_rounded.csv")[,-1]
+head(hb_coords)
+colnames(hb_coords) <- c("cellIDs", "Long", "Lat")
+
+# Read in geographic extent shape file
+#myshape <- raster("for sitexsp/myvarscrop.grd")
+myshape<- raster("C:/Users/mcwlim/Dropbox/resultsfromSarahcomputer/nodesigfiles/myvarscrop.grd")
+
+# Read in tree
+#tree <- read.tree("humtree280.tre") 
+tree <- read.tree("C:/Users/mcwlim/Desktop/StonyBrook/GrahamLab/Dissertation idea materials/THESIS PROJECTS/Hummingbird_Genomics/humtree280.tre")
+```
+
+#### 2. Load inputs into nodiv object 
+```{r, eval = TRUE, echo = FALSE, include = FALSE}
+# Get environmental variables
+# NOTE: r script version has altitude, i removed it for this doc because it doesn't add too much
+# # Get rasters res=10
+tmin <- raster::getData("worldclim", var="tmin", res = 10) %>% mean()
+prec <- raster::getData("worldclim", var="prec", res = 10) %>% sum()
+# Extract values (res=10)
+hb_coords$tmin <- raster::extract(x=tmin, y=hb_coords[c("Long", "Lat")])/10
+hb_coords$tmin[is.na(hb_coords$tmin)] <- na.omit(hb_coords$tmin)/10
+hb_coords$prec <- raster::extract(x=prec, y=hb_coords[c("Long", "Lat")])
+hb_coords$prec[is.na(hb_coords$prec)] <- na.omit(hb_coords$prec)
+hb_coords2 <- arrange(hb_coords, cellIDs)
+head(hb_coords2)
+
+# Generate distrib_data object
+hummers <- distrib_data(hb_commat2, hb_coords) %>% 
+  add_shape(myshape)
+# res=10
+hummers <- add_sitestat(distrib_data=hummers, 
+                        sitestat=dplyr::select(hb_coords2, tmin, prec), 
+                        site=rownames(hb_commat2))
+# Add phylogeny
+hummers <- nodiv_data(tree, hummers) 
+
+# Grid Data...
+#...in geographic space
+hummers_geo <- gridData(hummers, type = "geo") 
+#...in environmental space 
+hummers_env <- gridData(hummers, type = "env", env_binsizes = c(2, 400))
+  ## Warning message: In points2grid(points, tolerance, round) :   grid has empty column/rows in dimension 2
+```
+
+#### The most basic summary metrics are then available:
+Here, showing species richness at several different nodes in the phylogeny:
+```{r, echo=FALSE, fig.align='center'}
+plot_richness(hummers, main="Species richness: full tree")
+
+par(mfrow=c(1,2))
+plot_node(hummers, node=329, main="Species richness: Andean clade vs. rest")
+plot_node(hummers, node=272, main="Species richness at node: Topazes,Hermits vs. rest")
+
+
+plot_node(hummers,node=416, main="Species richness; out of SA")
+plot_node(hummers,node=330, main="Species richness; Coquettes vs. Brilliants")
+```
+
+#### 3. Run nodiv: geographic space 
+```{r, eval = TRUE}
+humm_nodiv <- Node_analysis(hummers, repeats = 100, method = "rdtable") 
+summary(humm_nodiv)
+```
+
+Results for geographic space analysis:
+GND values plotted at nodes
+```{r, echo=FALSE, fig.align='center'}
+plot(humm_nodiv, label=humm_nodiv$GND, col=heat.colors(10), direction="upwards")
+```
+
+SOS values plotted for several nodes:
+```{r, echo=FALSE, fig.align='center'}
+#plot SOS values for a given node
+par(mfrow=c(1,3))
+plotSOS(humm_nodiv, 329, main="Andean clade vs. rest", col="HMrainbow", xlab="Longitude", ylab="Latitude") 
+
+plotSOS(humm_nodiv, 272, main="HermitsTopazes vs. rest", col="HMrainbow", xlab="Longitude", ylab="Latitude")
+
+plotSOS(humm_nodiv, 416, main="BeesGems vs. Emeralds", col="HMrainbow", xlab="Longitude", ylab="Latitude")
+```
+
+#### 4. Run nodiv: environmental space 
+```{r, eval = TRUE}
+humm_nodiv_env <- Node_analysis(hummers_env, repeats = 100, method = "rdtable")
+summary(humm_nodiv_env)
+```
+
+Results for geographic space analysis:
+GND values plotted at nodes
+```{r, echo=FALSE, fig.align='center'}
+plot(humm_nodiv_env, label=humm_nodiv_env$GND, col=heat.colors(10), direction="upwards")
+```
+
+SOS values plotted for several nodes:
+x-axis = temperature (res=10 arcminutes, 0.167 degrees)
+y-axis = precipitation (res=10 arcminutes, 0.167 degrees)
+
+1. Base node of phylogeny vs. rest
+```{r, echo=FALSE, fig.align='center'}
+plotSOS(humm_nodiv_env, 272, col=HMrainbow()) 
+```
+
+2. Andean clade vs. rest
+```{r, echo=FALSE, fig.align='center'}
+plotSOS(humm_nodiv_env, 329, col=HMrainbow())
+```
+
+3. Base of Coquette split
+```{r, echo=FALSE, fig.align='center'}
+plotSOS(humm_nodiv_env, 372, col=HMrainbow())
+```
+
+4. Bees and Mt Gems vs. Emeralds
+```{r, echo=FALSE, fig.align='center'}
+plotSOS(humm_nodiv_env, 416, col=HMrainbow())
+```
+
+
+

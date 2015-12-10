@@ -12,7 +12,7 @@ library(dplyr)
 library(picante)
 
 # load this for the gridData function
-load('C:/Users/mcwlim/Desktop/Github/Hbird-genomics/P3_Diversi/nodiv-trait-analysis.RDATA')
+load('C:/Users/mcwlim/Desktop/Github/Hbird-diversity/P3_Diversi/nodiv-trait-analysis.RDATA')
 
 # set working directory
 #MLwd = "D:/MarisaLimfiles/Make_sitexsp_matrix/"
@@ -46,39 +46,46 @@ tree <- read.tree("C:/Users/mcwlim/Desktop/StonyBrook/GrahamLab/Dissertation ide
 # ------------ 2. Load inputs into nodiv object ------------
 
 # Get environmental variables
-# Note, res=10 and res=0.5 give pretty much the same results
 # # Get rasters res=10
-# tmin <- raster::getData("worldclim", var="tmin", res = 10) %>% mean()
-# prec <- raster::getData("worldclim", var="prec", res = 10) %>% sum()
-# # Extract values (res=10)
-# hb_coords$tmin <- raster::extract(x=tmin, y=hb_coords[c("Long", "Lat")])/10
-# hb_coords$tmin[is.na(hb_coords$tmin)] <- na.omit(hb_coords$tmin)/10
-# hb_coords$prec <- raster::extract(x=prec, y=hb_coords[c("Long", "Lat")])
-# hb_coords$prec[is.na(hb_coords$prec)] <- na.omit(hb_coords$prec)
-# hb_coords2 <- arrange(hb_coords, cellIDs)
-# head(hb_coords2)
+tmin <- raster::getData("worldclim", var="tmin", res = 10) %>% mean()
+prec <- raster::getData("worldclim", var="prec", res = 10) %>% sum()
+alt <- raster::getData("worldclim", var='alt', res=10) 
+# Extract values (res=10)
+hb_coords$tmin <- raster::extract(x=tmin, y=hb_coords[c("Long", "Lat")])/10
+hb_coords$tmin[is.na(hb_coords$tmin)] <- na.omit(hb_coords$tmin)/10
+hb_coords$prec <- raster::extract(x=prec, y=hb_coords[c("Long", "Lat")])
+hb_coords$prec[is.na(hb_coords$prec)] <- na.omit(hb_coords$prec)
+hb_coords$alt <- raster::extract(x=alt, y=hb_coords[c("Long", "Lat")])
+hb_coords$alt[is.na(hb_coords$alt)] <- na.omit(hb_coords$alt)
+hb_coords2 <- arrange(hb_coords, cellIDs)
+head(hb_coords2)
 
+# FIXME: the coords are messed up, not grabbing the right areas
 # Get rasters res=0.5
-tmin5_min <- raster::getData("worldclim", var="tmin", res = 0.5, lon=min(hb_coords$Long), lat=min(hb_coords$Lat)) %>% mean()
-tmin5_max <- raster::getData("worldclim", var="tmin", res = 0.5, lon=max(hb_coords$Long), lat=max(hb_coords$Lat)) %>% mean()
+tmin5_min <- raster::getData("worldclim", var="tmin", res = 0.5, lon=-165, lat=-60) %>% mean()
+tmin5_max <- raster::getData("worldclim", var="tmin", res = 0.5, lon=-30, lat=75) %>% mean()
 prec5_min <- raster::getData("worldclim", var="prec", res = 0.5, lon=min(hb_coords$Long), lat=min(hb_coords$Lat)) %>% sum()
 prec5_max <- raster::getData("worldclim", var="prec", res = 0.5, lon=max(hb_coords$Long), lat=max(hb_coords$Lat)) %>% sum()
+elev5_min <- raster::getData("worldclim", var="alt", res = 0.5, lon=min(hb_coords$Long), lat=min(hb_coords$Lat))
+elev5_max <- raster::getData("worldclim", var="alt", res = 0.5, lon=max(hb_coords$Long), lat=max(hb_coords$Lat))
 # Extract values (res=0.5)
-hb_coords$tmin <- raster::extract(x=tmin, y=hb_coords[c("Long", "Lat")])/10
-hb_coords$tmin[is.na(hb_coords$tmin)] <- na.omit(extract(tmin5_max, hb_coords[c("Long", "Lat")]))/10
-hb_coords$prec <- raster::extract(x=prec, y=hb_coords[c("Long", "Lat")])
-hb_coords$prec[is.na(hb_coords$prec)] <- na.omit(extract(prec5_max, hb_coords[c("Long", "Lat")]))
+hb_coords$tmin <- raster::extract(x=tmin5_min, y=hb_coords[c("Long", "Lat")])/10
+hb_coords$tmin[is.na(hb_coords$tmin5_min)] <- na.omit(extract(tmin5_max, hb_coords[c("Long", "Lat")]))/10
+hb_coords$prec <- raster::extract(x=prec5_min, y=hb_coords[c("Long", "Lat")])
+hb_coords$prec[is.na(hb_coords$prec5_min)] <- na.omit(extract(prec5_max, hb_coords[c("Long", "Lat")]))
+hb_coords$alt <- raster::extract(x=elev5_min, y=hb_coords[c("Long", "Lat")])
+hb_coords$alt[is.na(hb_coords$elev5_min)] <- na.omit(extract(elev5_max, hb_coords[c("Long", "Lat")]))
 hb_coords3 <- arrange(hb_coords, cellIDs)
 head(hb_coords3)
 
 # Generate distrib_data object
 hummers <- distrib_data(hb_commat2, hb_coords) %>% 
   add_shape(myshape)
-# # res=10
-# hummers <- add_sitestat(distrib_data=hummers, 
-#                         sitestat=dplyr::select(hb_coords2, tmin, prec), 
-#                         site=rownames(hb_commat2))
-res=0.5
+# res=10
+hummers <- add_sitestat(distrib_data=hummers, 
+                        sitestat=dplyr::select(hb_coords2, tmin, prec, alt), 
+                        site=rownames(hb_commat2))
+# res=0.5
 hummers <- add_sitestat(distrib_data=hummers, 
                         sitestat=dplyr::select(hb_coords3, tmin, prec), 
                         site=rownames(hb_commat2))
@@ -91,7 +98,7 @@ plot(hummers)
 hummers_geo <- gridData(hummers, type = "geo") ### TO DO: what does this do??
 plot(hummers_geo)
 #...in environmental space 
-hummers_env <- gridData(hummers, type = "env", env_binsizes = c(2, 400))
+hummers_env <- gridData(hummers, type = "env", env_binsizes = c(2, 400, 400))
   ## Warning message: In points2grid(points, tolerance, round) :   grid has empty column/rows in dimension 2
 plot(hummers_env) #### FIX: empty...
 
@@ -213,7 +220,7 @@ jpeg("Hbird_SOSenv_Andeancladevsrest.jpg", height=6, width=6, units="in", res=60
 plotSOS(humm_nodiv_env, 329, col=HMrainbow())
 dev.off()
 
-plotSOS(humm_nodiv_env, 372, col=HMrainbow())
+plotSOS(humm_nodiv_env, 372, col=HMrainbow()) # base of coquettes
 
 jpeg("Hbird_SOSenv_BeesGemsvsEms.jpg", height=6, width=6, units="in", res=600)
 plotSOS(humm_nodiv_env, 416, col=HMrainbow())
