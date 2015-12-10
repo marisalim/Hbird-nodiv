@@ -83,17 +83,19 @@ Here, showing species richness at several different nodes in the phylogeny:
 plot_richness(hummers, main="Species richness: full tree")
 
 par(mfrow=c(1,2))
-plot_node(hummers, node=329, main="Species richness: Andean clade vs. rest")
-plot_node(hummers, node=272, main="Species richness at node: Topazes,Hermits vs. rest")
+plot_node(hummers, node=329, main="Species richness: \nAndean clade vs. rest")
+plot_node(hummers, node=272, main="Species richness \nat node: Topazes,Hermits vs. rest")
 
 
-plot_node(hummers,node=416, main="Species richness; out of SA")
-plot_node(hummers,node=330, main="Species richness; Coquettes vs. Brilliants")
+plot_node(hummers,node=416, main="Species richness:\n out of SA")
+plot_node(hummers,node=330, main="Species richness:\n Coquettes vs. Brilliants")
 ```
 
 #### 3. Run nodiv: geographic space 
-```{r, eval = TRUE}
+```{r, eval = TRUE, echo = FALSE, include = FALSE}
 humm_nodiv <- Node_analysis(hummers, repeats = 100, method = "rdtable") 
+```
+```{r, eval = TRUE}
 summary(humm_nodiv)
 ```
 
@@ -115,9 +117,8 @@ plotSOS(humm_nodiv, 416, main="BeesGems vs. Emeralds", col="HMrainbow", xlab="Lo
 ```
 
 #### 4. Run nodiv: environmental space 
-```{r, eval = TRUE}
+```{r, eval = TRUE, echo = FALSE, include = FALSE}
 humm_nodiv_env <- Node_analysis(hummers_env, repeats = 100, method = "rdtable")
-summary(humm_nodiv_env)
 ```
 
 Results for geographic space analysis:
@@ -127,8 +128,10 @@ plot(humm_nodiv_env, label=humm_nodiv_env$GND, col=heat.colors(10), direction="u
 ```
 
 SOS values plotted for several nodes:
-x-axis = temperature (res=10 arcminutes, 0.167 degrees)
-y-axis = precipitation (res=10 arcminutes, 0.167 degrees)
+
+* x-axis = temperature (res=10 arcminutes, 0.167 degrees)
+
+* y-axis = precipitation (res=10 arcminutes, 0.167 degrees)
 
 1. Base node of phylogeny vs. rest
 ```{r, echo=FALSE, fig.align='center'}
